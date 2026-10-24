@@ -1,15 +1,19 @@
 # Ullavox - AI Chat Application
 
+[![CI](https://github.com/manojisnow/ullavox/actions/workflows/ci.yml/badge.svg)](https://github.com/manojisnow/ullavox/actions/workflows/ci.yml)
+[![Release](https://github.com/manojisnow/ullavox/actions/workflows/release.yml/badge.svg)](https://github.com/manojisnow/ullavox/releases/latest)
+[Docker Hub: dumanoj/ullavox](https://hub.docker.com/r/dumanoj/ullavox)
+
 A modern chat application built with React and Spring Boot that uses Ollama for local AI models.
 
 ![Ullavox interface with project navigation, model selection, and a spacious composer](docs/images/ullavox-interface.jpg)
 
-This checkout prepares Ullavox v1.7.0. Build from source until its container image
-and release asset are published.
+Ullavox v1.7.0 is available on [GitHub Releases](https://github.com/manojisnow/ullavox/releases/tag/v1.7.0)
+and [Docker Hub](https://hub.docker.com/r/dumanoj/ullavox).
 Existing users must follow [upgrade instructions](docs/rename-compatibility.md)
 to retain their data with the new configuration and storage names.
 
-## ⚡ Zero-Setup Quick Start (after v1.7.0 is published)
+## ⚡ Zero-Setup Quick Start
 
 Just Docker required — no repo clone, no build, no manual model setup.
 
