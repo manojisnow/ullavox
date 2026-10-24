@@ -4,12 +4,12 @@ A modern chat application built with React and Spring Boot that uses Ollama for 
 
 ![Ullavox interface with project navigation, model selection, and a spacious composer](docs/images/ullavox-interface.jpg)
 
-This checkout prepares the Ullavox distribution. Repository and registry cutover
-is still pending; build from source until the first renamed release is published.
+This checkout prepares Ullavox v1.7.0. Build from source until its container image
+and release asset are published.
 Existing users must follow [upgrade instructions](docs/rename-compatibility.md)
 to retain their data with the new configuration and storage names.
 
-## ⚡ Zero-Setup Quick Start (after distribution cutover)
+## ⚡ Zero-Setup Quick Start (after v1.7.0 is published)
 
 Just Docker required — no repo clone, no build, no manual model setup.
 
