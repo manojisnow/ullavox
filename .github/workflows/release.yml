@@ -1,13 +1,11 @@
 name: Release
 
-# Triggers when a version tag is pushed, e.g. git tag v1.0.0 && git push --tags.
-# Also runnable manually (workflow_dispatch) to re-sync Docker Hub metadata/images
-# for the current tag without cutting a new release.
+# Publication is triggered only by a pushed, validated version tag.
+# Use dockerhub-readme.yml for manual documentation updates.
 on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
 
 # Required secrets (set in GitHub → Settings → Secrets → Actions):
 #   DOCKERHUB_USERNAME  →  dumanoj
@@ -20,9 +18,41 @@ permissions:
 
 jobs:
 
+  validate:
+    name: Validate Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.policy.outputs.version }}
+      minor: ${{ steps.policy.outputs.minor }}
+      prerelease: ${{ steps.policy.outputs.prerelease }}
+      stable: ${{ steps.policy.outputs.stable }}
+      tags: ${{ steps.policy.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a default-branch commit
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if ! git merge-base --is-ancestor HEAD "origin/$DEFAULT_BRANCH"; then
+            echo "::error::Release tag must point to a commit in default-branch history."
+            exit 1
+          fi
+      - name: Test release tag policy
+        run: python3 -m unittest discover -s scripts/tests -p 'test_release_policy.py' -v
+      - name: Validate event and derive publication tags
+        id: policy
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+        run: python3 scripts/release_policy.py "$RELEASE_TAG" --event "$RELEASE_EVENT" --ref-type "$RELEASE_REF_TYPE" --compose docker-compose.release.yml >> "$GITHUB_OUTPUT"
+
   # ── Quality gates (mirrors CI — must pass before publishing) ─────────────────
 
   hadolint:
+    needs: validate
     name: Dockerfile Lint
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +63,7 @@ jobs:
           dockerfile: Dockerfile
 
   backend:
+    needs: validate
     name: Java Backend Build & Quality
     runs-on: ubuntu-latest
     steps:
@@ -57,6 +88,7 @@ jobs:
             backend/chatapp/target/jacoco.xml
 
   frontend:
+    needs: validate
     name: Frontend Build & Test
     runs-on: ubuntu-latest
     steps:
@@ -78,7 +110,7 @@ jobs:
 
   publish:
     name: Publish Docker Image & Create Release
-    needs: [hadolint, backend, frontend]
+    needs: [validate, hadolint, backend, frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # needed to create GitHub Releases
@@ -97,16 +129,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Produces tags:  dumanoj/ullavox:1.2.3  dumanoj/ullavox:1.2  dumanoj/ullavox:latest
+      # The validated policy owns all published aliases; metadata supplies labels.
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: dumanoj/ullavox
+          flavor: latest=false
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=raw,value=${{ needs.validate.outputs.version }}
           labels: |
             org.opencontainers.image.title=Ullavox
             org.opencontainers.image.description=AI chat application powered by Ollama
@@ -117,13 +148,14 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64/v8
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ needs.validate.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Re-use cached layers from previous releases to speed up builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Update Docker Hub Description
+        if: needs.validate.outputs.stable == 'true'
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -132,10 +164,7 @@ jobs:
           short-description: ${{ github.event.repository.description }}
           readme-filepath: ./README.md
 
-      # Only meaningful on an actual tag push — a workflow_dispatch run (used to
-      # re-sync Docker Hub metadata/images without cutting a release) has no tag.
       - name: Prepare curated release notes
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -147,9 +176,11 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ needs.validate.outputs.prerelease }}
+          make_latest: ${{ needs.validate.outputs.stable }}
           files: docker-compose.release.yml
           generate_release_notes: true
           body_path: ${{ runner.temp }}/ullavox-release-notes.md
