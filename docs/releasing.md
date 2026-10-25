@@ -59,6 +59,41 @@ Keep the prior image and database backup until the upgrade is accepted. Follow
 the target release notes for rollback and preserve Docker's Compose project
 name so the expected named volumes are selected.
 
+## Stable and prerelease publication rules
+
+Release publication is tag-triggered. There is no manual Release dispatch from a
+branch. Use **Sync Docker Hub README** for documentation changes; a failed release
+can be retried from its original tag run after reviewing the failure.
+
+Before any registry login, the validation job requires a tag push, validates the
+version, checks that its commit belongs to default-branch history, and verifies
+that the release Compose app image pins that exact version. The existing build
+and quality gates must also pass before publishing.
+
+| Pushed tag | Docker tags | GitHub release |
+| --- | --- | --- |
+| `v1.8.0` | `1.8.0`, `1.8`, `latest` | Stable, marked latest |
+| `v1.8.0-rc.1` | `1.8.0-rc.1` only | Prerelease, not latest |
+
+Core numeric components and numeric prerelease identifiers cannot have leading
+zeros. Build metadata (`+...`) is unsupported because it cannot be preserved in a
+Docker tag. The complete image tag must fit Docker's 128-character limit.
+
+For a prerelease, pin `docker-compose.release.yml` to that exact prerelease image
+and prepare matching notes such as `docs/releases/v1.8.0-rc.1.md`. Prereleases skip
+Docker Hub description sync and cannot update minor/latest image aliases. Before
+the stable tag, update the Compose pin and release notes to the stable version.
+
+Run the publication regression checks locally with:
+
+```bash
+python3 -m unittest discover -s scripts/tests -p 'test_release_policy.py' -v
+```
+
+CI runs these checks on PRs and main. These safeguards apply to tags containing
+this workflow revision. Historical workflow runs retain their original code;
+do not rerun an older release workflow merely to refresh documentation or tags.
+
 ## Refresh Docker Hub documentation
 
 After README corrections are merged, run **Sync Docker Hub README**
