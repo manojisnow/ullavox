@@ -58,3 +58,17 @@ tag or silently overwrite a published version to repair a failed release.
 Keep the prior image and database backup until the upgrade is accepted. Follow
 the target release notes for rollback and preserve Docker's Compose project
 name so the expected named volumes are selected.
+
+## Refresh Docker Hub documentation
+
+After README corrections are merged, run **Sync Docker Hub README**
+(`.github/workflows/dockerhub-readme.yml`) from the default branch in GitHub
+Actions. It copies the default branch README and repository description to
+`dumanoj/ullavox`, converting relative links to absolute URLs. Runs from other
+branches skip the sync job.
+
+This manual workflow uses the existing `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+Actions secrets internally to authenticate to Docker Hub. It has read-only GitHub
+contents permissions and does not build images, update image tags, or create a
+release. Do not use a manual Release workflow run for documentation-only changes.
+After a successful sync, verify the public Docker Hub README and links.
